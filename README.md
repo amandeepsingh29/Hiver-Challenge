@@ -54,3 +54,26 @@ This accurately reflects human judgment of email quality. It goes beyond keyword
    ```bash
    streamlit run app.py
    ```
+
+## Critical Analysis & Production Trade-offs
+
+Because this was built within a 100-minute constraint, several naive shortcuts were taken. If this were a real production system for Hiver, the current architecture would be highly inadequate. Here is a critical breakdown of its flaws and what **must** be done for production:
+
+### 1. Grounding is Naive (Random Few-Shot vs. RAG)
+* **The Flaw**: The system currently selects few-shot examples from the dataset *at random*. If a customer asks for a refund, and the prompt includes 3 random examples about "login issues", the context is wasted and the model has no reference for the refund policy.
+* **The Fix**: Implement a **Retrieval-Augmented Generation (RAG)** pipeline. We must embed all historical, high-CSAT support tickets into a vector database (e.g., Pinecone, Qdrant). When a new email arrives, we perform a semantic search to retrieve the top 3 most similar past cases and use *those* as the few-shot examples.
+
+### 2. Evaluation is Biased ("Grading Your Own Homework")
+* **The Flaw**: We are using `gemini-2.5-flash` to generate the reply, and the exact same model to act as the QA Judge. LLMs have a known bias toward their own output style. Worse, if the model hallucinates a policy during generation, it might fail to dock points during evaluation because it inherently believes its own hallucination.
+* **The Fix**: The Generator and the Evaluator must be decoupled. Use a faster, cheaper model for generation (e.g., a fine-tuned Llama 3 or Gemini Flash), but use a larger, more capable "Teacher" model (e.g., `GPT-4o` or `Gemini 1.5 Pro`) exclusively for the evaluation step. 
+
+### 3. High Risk of Dangerous Hallucinations
+* **The Flaw**: The prompt blindly asks the LLM to write a reply. As seen in test cases, if asked about a "Slack Integration", the AI enthusiastically invents a step-by-step guide for a feature that doesn't exist.
+* **The Fix**: We need **Guardrails**. 
+    1. A Knowledge Base document must be injected into the context. 
+    2. We need a pre-generation classification step: *Does the AI have enough context to answer this?*
+    3. We must implement **Human-in-the-Loop (HITL) routing**. High-risk intents (e.g., "delete my account", "legal action") should bypass the generator entirely and be routed to a human queue.
+
+### 4. Brittle Infrastructure
+* **The Flaw**: To bypass rate limits, the code uses a synchronous `time.sleep(15)`. In production, a burst of 1,000 emails would completely lock the thread and crash the system.
+* **The Fix**: Move to asynchronous processing (`asyncio`) or a message broker (Celery/Redis). Rate limits should be handled via exponential backoff (e.g., the `tenacity` library) rather than hardcoded sleeps.
