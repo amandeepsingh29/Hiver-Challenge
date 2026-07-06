@@ -1,10 +1,24 @@
 import os
 import json
 import numpy as np
+import faiss
 from google import genai
+from pydantic import BaseModel, Field
 from typing import List, Dict, Tuple
 
-# Assumes client is created in main.py
+# Load FAISS index and mapping at module level for O(1) fast startup
+try:
+    index = faiss.read_index("dataset.faiss")
+    with open("faiss_mapping.json", "r") as f:
+        faiss_mapping = json.load(f)
+except Exception as e:
+    print(f"Warning: Could not load FAISS index. Run build_index.py first. Error: {e}")
+    index, faiss_mapping = None, None
+
+class GeneratorOutput(BaseModel):
+    intent: str = Field(description="The primary intent of the customer (e.g., 'refund_request', 'bug_report').")
+    requires_human: bool = Field(description="True if the request involves legal threats, account deletion, or requires human empathy. False otherwise.")
+    suggested_reply: str = Field(description="The polite, helpful, and concise email draft. If requires_human is True, draft an escalation message.")
 
 def get_embedding(client: genai.Client, text: str) -> np.ndarray:
     """Helper function to get text embedding."""
@@ -12,55 +26,62 @@ def get_embedding(client: genai.Client, text: str) -> np.ndarray:
         model='gemini-embedding-2',
         contents=text
     )
-    return np.array(response.embeddings[0].values)
+    return np.array(response.embeddings[0].values, dtype=np.float32)
 
-def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
-    """Compute cosine similarity between two vectors."""
-    dot_product = np.dot(vec1, vec2)
-    norm1 = np.linalg.norm(vec1)
-    norm2 = np.linalg.norm(vec2)
-    if norm1 == 0 or norm2 == 0:
-        return 0.0
-    return dot_product / (norm1 * norm2)
-
-def generate_reply(client: genai.Client, incoming_email: str, dataset: List[Dict], model_name: str = "gemini-2.5-flash") -> Tuple[str, List[Dict]]:
+def generate_reply(client: genai.Client, incoming_email: str, dataset: List[Dict], model_name: str = "gemini-2.5-flash") -> Tuple[GeneratorOutput, List[Dict]]:
     """
-    Generates a suggested reply for an incoming email, grounded in past examples via RAG.
-    Returns a tuple of (generated_reply, retrieved_examples).
+    Generates a structured reply using FAISS vector search for RAG.
+    Returns (GeneratorOutput, retrieved_examples).
     """
-    # 1. RAG Retrieval Phase
-    incoming_vec = get_embedding(client, incoming_email)
+    retrieved_examples = []
     
-    # Calculate similarity for all items in the dataset (excluding exact matches to simulate real-world)
-    similarities = []
-    for item in dataset:
-        if item['incoming'] == incoming_email:
-            continue
+    if index is not None and faiss_mapping is not None:
+        # 1. FAISS RAG Retrieval (O(1) fast lookup)
+        incoming_vec = get_embedding(client, incoming_email)
+        faiss.normalize_L2(np.array([incoming_vec]))
         
-        # In a production system, these embeddings would be pre-computed and stored in a Vector DB.
-        # Here we compute on the fly for simplicity.
-        item_vec = get_embedding(client, item['incoming'])
-        sim = cosine_similarity(incoming_vec, item_vec)
-        similarities.append((sim, item))
+        # Search top 3 (in case the query itself is in the dataset, we skip it)
+        distances, indices = index.search(np.array([incoming_vec]), 3)
+        
+        for idx in indices[0]:
+            if idx == -1: continue
+            
+            # Retrieve from dataset via mapping
+            item_id = faiss_mapping.get(str(idx))
+            if item_id:
+                # Find item in dataset
+                item = next((x for x in dataset if x['id'] == item_id), None)
+                if item and item['incoming'] != incoming_email:
+                    retrieved_examples.append(item)
+                if len(retrieved_examples) == 2:
+                    break
     
-    # Sort by highest similarity and take top 2
-    similarities.sort(key=lambda x: x[0], reverse=True)
-    retrieved_examples = [item for sim, item in similarities[:2]]
-    
-    # 2. Generation Phase
-    prompt = "You are an AI customer support assistant for Hiver. Your task is to draft a polite, helpful, and concise reply to an incoming customer email.\n\n"
+    # 2. Generation Phase with HITL Structured Output
+    prompt = "You are an AI customer support assistant for Hiver. Draft a polite, helpful, and concise reply.\n\n"
     
     if retrieved_examples:
-        prompt += "Here are the most relevant past customer emails and our approved replies to use as guidance:\n\n"
+        prompt += "--- RELEVANT PAST EXAMPLES (Knowledge Base) ---\n"
         for ex in retrieved_examples:
-            prompt += f"--- Relevant Past Example ---\nIncoming: {ex['incoming']}\nReply: {ex['reference_reply']}\n\n"
+            prompt += f"Incoming: {ex['incoming']}\nApproved Reply: {ex['reference_reply']}\n\n"
             
-    prompt += f"--- Now draft a reply for the following new incoming email ---\nIncoming: {incoming_email}\nReply:\n"
+    prompt += f"--- NEW INCOMING EMAIL ---\n{incoming_email}\n"
     
-    # Call the model
+    # Call the model enforcing structured output
     response = client.models.generate_content(
         model=model_name,
         contents=prompt,
+        config=genai.types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=GeneratorOutput,
+            temperature=0.3
+        )
     )
     
-    return response.text.strip(), retrieved_examples
+    # Parse structured output
+    try:
+        output = GeneratorOutput.model_validate_json(response.text)
+    except Exception as e:
+        # Fallback if parsing fails (rare with strict schema)
+        output = GeneratorOutput(intent="unknown", requires_human=True, suggested_reply=f"Error parsing response: {e}")
+        
+    return output, retrieved_examples

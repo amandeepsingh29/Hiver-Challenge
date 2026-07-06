@@ -1,46 +1,50 @@
 from google import genai
-from google.genai import types
-import json
 from pydantic import BaseModel, Field
 
 class EvaluationResult(BaseModel):
-    tone_score: int = Field(description="Score from 1 to 5 for the tone (professional and polite).")
-    helpfulness_score: int = Field(description="Score from 1 to 5 for how helpful the reply is in addressing the incoming email.")
-    conciseness_score: int = Field(description="Score from 1 to 5 for how concise and to-the-point the reply is.")
-    reasoning: str = Field(description="A brief explanation for the given scores.")
-    overall_score: float = Field(description="The average of the three scores.")
+    tone_score: int = Field(description="Score from 1 to 5 on politeness and professionalism.")
+    helpfulness_score: int = Field(description="Score from 1 to 5 on whether it solves the user's problem.")
+    conciseness_score: int = Field(description="Score from 1 to 5 on being concise without fluff.")
+    hallucination_penalty: int = Field(description="Score from 0 to -5. Deduct points if the generated reply invents company policies, urls, or features not present in the reference reply.")
+    reasoning: str = Field(description="A brief explanation for the given scores and penalties.")
+    overall_score: float = Field(description="The average of the three positive scores plus the hallucination penalty (e.g., if avg is 4 and penalty is -2, overall is 2).")
 
 def evaluate_reply(client: genai.Client, incoming: str, generated_reply: str, reference_reply: str, model_name: str = "gemini-2.5-flash") -> dict:
     """
-    Evaluates a generated reply using an LLM-as-a-judge approach.
+    Evaluates a generated reply using an LLM-as-a-judge approach, now with strict hallucination checks.
     """
     prompt = f"""
-    You are an expert customer support QA manager. Your job is to evaluate a generated email reply.
+    You are a strict QA evaluator for Hiver customer support.
+    Evaluate the following GENERATED REPLY against the IDEAL REFERENCE REPLY.
     
-    Incoming Customer Email:
-    {incoming}
+    Customer Email: {incoming}
+    Ideal Reference Reply: {reference_reply}
+    Generated Reply: {generated_reply}
     
-    Reference (Ideal) Reply:
-    {reference_reply}
-    
-    Generated Reply to Evaluate:
-    {generated_reply}
-    
-    Evaluate the generated reply on three axes (1-5 scale):
-    1. Tone: Is it professional, empathetic, and polite?
-    2. Helpfulness: Does it accurately address the customer's issue (using the reference as a ground truth for company policy/action)?
-    3. Conciseness: Is it direct and without unnecessary fluff?
-    
-    Provide the scores and a brief reasoning.
+    Score Tone, Helpfulness, and Conciseness on a scale of 1-5.
+    Critically, apply a Hallucination Penalty (0 to -5) if the Generated Reply invents any facts, URLs, integrations, or promises that are NOT present in the Ideal Reference Reply.
+    Return the scores and your reasoning in JSON format.
     """
     
-    response = client.models.generate_content(
-        model=model_name,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=EvaluationResult
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=EvaluationResult,
+                temperature=0.1
+            )
         )
-    )
-    
-    return json.loads(response.text)
+        # Parse the JSON response
+        result = EvaluationResult.model_validate_json(response.text)
+        return result.model_dump()
+    except Exception as e:
+        return {
+            "tone_score": 0,
+            "helpfulness_score": 0,
+            "conciseness_score": 0,
+            "hallucination_penalty": 0,
+            "overall_score": 0.0,
+            "reasoning": f"Evaluation failed: {e}"
+        }
