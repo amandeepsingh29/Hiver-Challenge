@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 from pydantic import BaseModel, Field
 
@@ -9,12 +10,10 @@ class EvaluationResult(BaseModel):
     reasoning: str = Field(description="A brief explanation for the given scores.")
     overall_score: float = Field(description="The average of the three scores.")
 
-def evaluate_reply(incoming: str, generated_reply: str, reference_reply: str, model_name: str = "gemini-1.5-flash") -> dict:
+def evaluate_reply(client: genai.Client, incoming: str, generated_reply: str, reference_reply: str, model_name: str = "gemini-1.5-flash") -> dict:
     """
     Evaluates a generated reply using an LLM-as-a-judge approach.
     """
-    model = genai.GenerativeModel(model_name)
-    
     prompt = f"""
     You are an expert customer support QA manager. Your job is to evaluate a generated email reply.
     
@@ -35,9 +34,10 @@ def evaluate_reply(incoming: str, generated_reply: str, reference_reply: str, mo
     Provide the scores and a brief reasoning.
     """
     
-    response = model.generate_content(
-        prompt,
-        generation_config=genai.GenerationConfig(
+    response = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=EvaluationResult
         )
