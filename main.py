@@ -57,6 +57,10 @@ def main():
             })
             
             total_score += eval_result['overall_score']
+            
+            # Sleep to avoid free tier rate limits (15 RPM limit)
+            import time
+            time.sleep(15)
         except Exception as e:
             print(f"Error during processing: {e}", flush=True)
             return
