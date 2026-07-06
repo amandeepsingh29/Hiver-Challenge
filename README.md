@@ -42,9 +42,15 @@ This accurately reflects human judgment of email quality. It goes beyond keyword
    ```env
    GEMINI_API_KEY=your_actual_api_key_here
    ```
-4. Run the end-to-end pipeline:
+4. **Command-Line Runner:**
+   Run the end-to-end evaluation pipeline in the terminal:
    ```bash
    python main.py
    ```
+   The script will iterate over the dataset, generate replies, evaluate them, print the per-response scores and reasoning, and output a final system average score. A detailed JSON log will also be saved to `evaluation_results.json`.
 
-The script will iterate over the dataset, generate replies, evaluate them, print the per-response scores and reasoning, and output a final system average score. A detailed JSON log will also be saved to `evaluation_results.json`.
+5. **Interactive Dashboard:**
+   To interactively test the generation and evaluation, run the Streamlit app:
+   ```bash
+   streamlit run app.py
+   ```
