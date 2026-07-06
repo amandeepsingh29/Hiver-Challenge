@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "category": "refund",
+    "incoming": "Hi, I purchased the Pro plan yesterday but I realized it doesn't have the feature I need. Can I get a refund?",
+    "reference_reply": "Hi there,\n\nI understand the Pro plan wasn't quite what you were looking for. I've processed a full refund for your purchase, which should appear on your bank statement within 3-5 business days.\n\nPlease let us know if you have any other questions!\n\nBest,\nThe Hiver Team"
+  },
+  {
+    "id": "2",
+    "category": "technical_issue",
+    "incoming": "Hello, I can't seem to log into my account. It keeps saying 'Invalid Password' even though I reset it twice.",
+    "reference_reply": "Hi there,\n\nI'm sorry to hear you're having trouble logging in. This sometimes happens if the browser is caching an old password. Could you please try clearing your browser cache and cookies, or attempting to log in via an incognito window?\n\nIf the issue persists, let me know and we can look into it further.\n\nBest,\nThe Hiver Team"
+  },
+  {
+    "id": "3",
+    "category": "feature_request",
+    "incoming": "Do you guys support integration with Slack? We use it heavily and would love to see Hiver notifications there.",
+    "reference_reply": "Hi there,\n\nThanks for reaching out! While we don't currently have a native Slack integration, it's a very popular request. I've added your vote to our internal feature tracker for this.\n\nIn the meantime, you might be able to set up a workaround using Zapier. Let me know if you'd like more details on that!\n\nBest,\nThe Hiver Team"
+  },
+  {
+    "id": "4",
+    "category": "billing",
+    "incoming": "I need a copy of my invoice for last month (June). Where can I find this?",
+    "reference_reply": "Hi there,\n\nYou can easily find all your past invoices directly in your account dashboard. Just go to Settings > Billing and click on the 'Invoices' tab. From there, you can download a PDF for June or any other past month.\n\nLet me know if you have trouble finding it!\n\nBest,\nThe Hiver Team"
+  },
+  {
+    "id": "5",
+    "category": "pricing_inquiry",
+    "incoming": "We are a non-profit with a team of 15. Do you offer any discounts for NGOs?",
+    "reference_reply": "Hi there,\n\nYes, we do! We're proud to support non-profits and offer a 50% discount on all our plans. To apply it, please reply to this email with a copy of your 501(c)(3) documentation or equivalent proof of non-profit status, and we'll apply the discount to your account.\n\nLooking forward to hearing from you!\n\nBest,\nThe Hiver Team"
+  }
+]
