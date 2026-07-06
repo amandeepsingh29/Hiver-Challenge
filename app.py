@@ -48,7 +48,13 @@ st.info(selected_item['incoming'])
 if st.button("Generate Reply & Evaluate", type="primary"):
     with st.spinner("🧠 Generating intelligent reply..."):
         try:
-            generated_reply = generate_reply(client, selected_item['incoming'], dataset)
+            generated_reply, retrieved_examples = generate_reply(client, selected_item['incoming'], dataset)
+            
+            if retrieved_examples:
+                st.subheader("🔍 RAG Context Retrieved")
+                for i, ex in enumerate(retrieved_examples):
+                    with st.expander(f"Context {i+1}: Past {ex['category'].replace('_', ' ').title()} Email"):
+                        st.markdown(f"**Incoming:** {ex['incoming']}\n\n**Reply Used:** {ex['reference_reply']}")
             
             st.subheader("🤖 Generated Reply")
             st.success(generated_reply)

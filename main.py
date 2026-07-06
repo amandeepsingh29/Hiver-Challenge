@@ -39,7 +39,8 @@ def main():
         # Generate
         print("Generating reply...", flush=True)
         try:
-            generated_reply = generate_reply(client, item['incoming'], dataset)
+            generated_reply, retrieved_examples = generate_reply(client, item['incoming'], dataset)
+            print(f"Retrieved {len(retrieved_examples)} relevant past examples for context.", flush=True)
             print(f"Generated Reply:\n{generated_reply}\n", flush=True)
             
             # Evaluate

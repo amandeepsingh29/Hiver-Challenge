@@ -10,7 +10,7 @@ class EvaluationResult(BaseModel):
     reasoning: str = Field(description="A brief explanation for the given scores.")
     overall_score: float = Field(description="The average of the three scores.")
 
-def evaluate_reply(client: genai.Client, incoming: str, generated_reply: str, reference_reply: str, model_name: str = "gemini-1.5-flash") -> dict:
+def evaluate_reply(client: genai.Client, incoming: str, generated_reply: str, reference_reply: str, model_name: str = "gemini-2.5-flash") -> dict:
     """
     Evaluates a generated reply using an LLM-as-a-judge approach.
     """
