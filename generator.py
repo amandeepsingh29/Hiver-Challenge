@@ -31,7 +31,7 @@ def get_embedding(client: genai.Client, text: str) -> np.ndarray:
 def generate_reply(client: genai.Client, incoming_email: str, dataset: List[Dict], model_name: str = "gemini-2.5-flash") -> Tuple[GeneratorOutput, List[Dict]]:
     """
     Generates a structured reply using FAISS vector search for RAG.
-    Returns (GeneratorOutput, retrieved_examples).
+    Implements a similarity threshold to gracefully fall back to zero-shot if no relevant past tickets exist.
     """
     retrieved_examples = []
     
@@ -43,9 +43,15 @@ def generate_reply(client: genai.Client, incoming_email: str, dataset: List[Dict
         # Search top 3 (in case the query itself is in the dataset, we skip it)
         distances, indices = index.search(np.array([incoming_vec]), 3)
         
-        for idx in indices[0]:
+        SIMILARITY_THRESHOLD = 0.65
+        
+        for dist, idx in zip(distances[0], indices[0]):
             if idx == -1: continue
             
+            # Threshold Check - Defensive RAG
+            if dist < SIMILARITY_THRESHOLD:
+                continue
+                
             # Retrieve from dataset via mapping
             item_id = faiss_mapping.get(str(idx))
             if item_id:
@@ -56,8 +62,10 @@ def generate_reply(client: genai.Client, incoming_email: str, dataset: List[Dict
                 if len(retrieved_examples) == 2:
                     break
     
-    # 2. Generation Phase with HITL Structured Output
-    prompt = "You are an AI customer support assistant for Hiver. Draft a polite, helpful, and concise reply.\n\n"
+    # 2. Generation Phase with HITL Structured Output and System Instruction
+    system_instruction = "You are an elite, highly empathetic AI customer support assistant for Hiver. Draft a polite, helpful, and concise reply. Base your answers firmly on company policy if provided."
+    
+    prompt = ""
     
     if retrieved_examples:
         prompt += "--- RELEVANT PAST EXAMPLES (Knowledge Base) ---\n"
@@ -66,11 +74,12 @@ def generate_reply(client: genai.Client, incoming_email: str, dataset: List[Dict
             
     prompt += f"--- NEW INCOMING EMAIL ---\n{incoming_email}\n"
     
-    # Call the model enforcing structured output
+    # Call the model enforcing structured output and using the system prompt
     response = client.models.generate_content(
         model=model_name,
         contents=prompt,
         config=genai.types.GenerateContentConfig(
+            system_instruction=system_instruction,
             response_mime_type="application/json",
             response_schema=GeneratorOutput,
             temperature=0.3
