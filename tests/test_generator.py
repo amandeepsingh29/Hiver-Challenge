@@ -1,6 +1,6 @@
 import json
 import pytest
-from generator import GeneratorOutput
+from src.generator import GeneratorOutput
 
 def test_generator_schema_validation():
     # Test valid JSON

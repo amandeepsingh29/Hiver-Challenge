@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from google.genai.errors import APIError
 
-from generator import generate_reply
-from evaluator import evaluate_reply
+from src.generator import generate_reply
+from src.evaluator import evaluate_reply
 
 # Configuration
 load_dotenv()
@@ -69,7 +69,7 @@ async def process_email(item, dataset):
 async def main():
     print("Loading dataset...")
     try:
-        with open("dataset.json", "r") as f:
+        with open("data/dataset.json", "r") as f:
             dataset = json.load(f)
     except FileNotFoundError:
         print("dataset.json not found.")
@@ -92,9 +92,9 @@ async def main():
         print(f"System Average Score: {avg_score:.2f} / 5.0")
         
         # Save results
-        with open("evaluation_results.json", "w") as f:
+        with open("data/evaluation_results.json", "w") as f:
             json.dump(valid_results, f, indent=2)
-        print("Detailed results saved to evaluation_results.json")
+        print("Detailed results saved to data/evaluation_results.json")
     else:
         print("No valid results were produced.")
 

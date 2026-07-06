@@ -4,8 +4,8 @@ import json
 import time
 from google import genai
 from dotenv import load_dotenv
-from generator import generate_reply
-from evaluator import evaluate_reply
+from src.generator import generate_reply
+from src.evaluator import evaluate_reply
 
 # Load environment and configure API
 load_dotenv()
@@ -26,7 +26,7 @@ client = genai.Client(api_key=api_key)
 # Load dataset
 @st.cache_data
 def load_dataset():
-    with open("dataset.json", "r") as f:
+    with open("data/dataset.json", "r") as f:
         return json.load(f)
 
 dataset = load_dataset()

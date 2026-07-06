@@ -24,8 +24,12 @@ def get_embedding(client: genai.Client, text: str) -> np.ndarray:
     return np.array(response.embeddings[0].values, dtype=np.float32)
 
 print("Loading dataset...")
-with open("dataset.json", "r") as f:
-    dataset = json.load(f)
+try:
+    with open("data/dataset.json", "r") as f:
+        dataset = json.load(f)
+except FileNotFoundError:
+    print("Error: data/dataset.json not found.")
+    exit(1)
 
 embeddings = []
 mapping = {}
@@ -57,9 +61,8 @@ faiss.normalize_L2(embeddings_array)
 index.add(embeddings_array)
 
 print("Saving FAISS index and mapping...")
-faiss.write_index(index, "dataset.faiss")
-
-with open("faiss_mapping.json", "w") as f:
+faiss.write_index(index, "data/dataset.faiss")
+with open("data/faiss_mapping.json", "w") as f:
     json.dump(mapping, f, indent=2)
 
 print("Build complete.")

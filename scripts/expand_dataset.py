@@ -15,7 +15,7 @@ if not api_key:
 client = genai.Client(api_key=api_key)
 
 print("Loading existing dataset...")
-with open("dataset.json", "r") as f:
+with open("data/dataset.json", "r") as f:
     dataset = json.load(f)
 
 # We want 50 total. We have 5. We need 45 more.
@@ -79,6 +79,6 @@ for i in range(0, needed, batch_size):
     time.sleep(15)
 
 print(f"Dataset now has {len(dataset)} items.")
-with open("dataset.json", "w") as f:
+with open("data/dataset.json", "w") as f:
     json.dump(dataset, f, indent=2)
 print("Updated dataset.json")

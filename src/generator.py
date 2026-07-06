@@ -8,8 +8,8 @@ from typing import List, Dict, Tuple
 
 # Load FAISS index and mapping at module level for O(1) fast startup
 try:
-    index = faiss.read_index("dataset.faiss")
-    with open("faiss_mapping.json", "r") as f:
+    index = faiss.read_index("data/dataset.faiss")
+    with open("data/faiss_mapping.json", "r") as f:
         faiss_mapping = json.load(f)
 except Exception as e:
     print(f"Warning: Could not load FAISS index. Run build_index.py first. Error: {e}")

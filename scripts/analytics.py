@@ -1,7 +1,7 @@
 import json
 import collections
 
-def generate_report(results_file="evaluation_results.json"):
+def generate_report(results_file="data/evaluation_results.json"):
     try:
         with open(results_file, "r") as f:
             results = json.load(f)
